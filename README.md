@@ -28,13 +28,13 @@ That factorization is not a numerical trick. It is a **hardware schematic**:
    exactly one **Mach-Zehnder Interferometer**: two beamsplitters, two phase
    shifters (θ sets the split ratio, φ sets the relative phase). Etch the mesh,
    set the phases, done.
-2. `diag(S)` only scales. Scaling is **attenuation** — per-channel amplitude
+2. `diag(S)` only scales. Scaling is **attenuation** - per-channel amplitude
    modulators. Passive optics can't amplify, so we normalize by S_max and fold
    the global gain into laser power. Physics keeps the books balanced.
 
 Encode your activation vector as optical amplitudes, launch it into the left
 edge of the chip, and interference performs all N² multiply-accumulates
-*during propagation* — picoseconds, in parallel, deterministically. There is no
+*during propagation* - picoseconds, in parallel, deterministically. There is no
 clock, no instruction stream, no cache hierarchy, no HBM stall. The answer
 arrives at the photodetectors at the speed of light in silicon because the
 circuit **is** the matrix.
@@ -46,7 +46,7 @@ A digital MAC moves charge through transistors every single cycle — roughly
 inferences/sec burns ~295 mW doing arithmetic a piece of structured glass does
 for 0 J. Phase shifters are set **once** at compile time; afterward the
 multiply is a boundary condition, not a computation. Lasers, DACs, ADCs and
-thermal hold power are real I/O costs — but they sit at the edges and amortize,
+thermal hold power are real I/O costs - but they sit at the edges and amortize,
 while the O(N²) arithmetic core drops to zero. GPUs hit a thermal wall.
 Waveguides don't have one.
 
@@ -54,7 +54,7 @@ Waveguides don't have one.
 
 A GPU gives you throughput with a probability distribution around it: cache
 misses, warp scheduling, thermal throttling. A photonic mesh gives you a
-**fixed, physical latency** — light through a known path length. Same input,
+**fixed, physical latency** - light through a known path length. Same input,
 same time-of-flight, every time. That is what inference at the edge, in
 vehicles, and in control loops actually requires.
 
@@ -71,4 +71,4 @@ itself every run.
 
 MIT. Take it, learn it, build the future with it.
 
-*Axiom Photonics — the speed of light is not a bottleneck. It's the roadmap.*
+*Axiom Photonics - the speed of light is not a bottleneck. It's the roadmap.*

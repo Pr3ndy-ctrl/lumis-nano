@@ -41,7 +41,7 @@ circuit **is** the matrix.
 
 ## THE ENERGY ARGUMENT
 
-A digital MAC moves charge through transistors every single cycle — roughly
+A digital MAC moves charge through transistors every single cycle - roughly
 4.6 pJ per fp32 MAC in 45 nm CMOS (Horowitz, ISSCC 2014). An 8×8 layer at 10⁹
 inferences/sec burns ~295 mW doing arithmetic a piece of structured glass does
 for 0 J. Phase shifters are set **once** at compile time; afterward the

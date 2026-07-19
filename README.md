@@ -24,7 +24,7 @@ That factorization is not a numerical trick. It is a **hardware schematic**:
 
 1. `U` and `Vᵀ` are unitary. Unitary means energy-conserving. Energy-conserving
    means **lossless optics**. Any N×N unitary decomposes into N(N−1)/2 planar
-   2×2 rotations (Reck et al., *PRL* 1994) — and a 2×2 optical rotation is
+   2×2 rotations (Reck et al., *PRL* 1994) - and a 2×2 optical rotation is
    exactly one **Mach-Zehnder Interferometer**: two beamsplitters, two phase
    shifters (θ sets the split ratio, φ sets the relative phase). Etch the mesh,
    set the phases, done.

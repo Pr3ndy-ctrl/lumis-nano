@@ -28,6 +28,7 @@ That factorization is not a numerical trick. It is a **hardware schematic**:
    exactly one **Mach-Zehnder Interferometer**: two beamsplitters, two phase
    shifters (θ sets the split ratio, φ sets the relative phase). Etch the mesh,
    set the phases, done.
+   > The core uses the Reck triangular ordering for clarity. The production compiler uses the Clements rectangular ordering. Both use N(N-1)/2 interferometers; the difference is optical depth. At N=64 that is 64 stages against 125, so Clements accumulates roughly half the insertion loss and half the phase error along a path.
 2. `diag(S)` only scales. Scaling is **attenuation** - per-channel amplitude
    modulators. Passive optics can't amplify, so we normalize by S_max and fold
    the global gain into laser power. Physics keeps the books balanced.
@@ -70,5 +71,7 @@ itself every run.
 ## LICENSE
 
 MIT. Take it, learn it, build the future with it.
+
+For production integration, the [Lumis SDK](https://lumiscompute.com) adds production scale, the physics-grounded power model, the M/D/1 latency harness, workload trace ingestion, and parameter updates as measurements arrive.
 
 *Axiom Photonics - the speed of light is not a bottleneck. It's the roadmap.*

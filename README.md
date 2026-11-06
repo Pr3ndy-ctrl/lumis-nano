@@ -72,6 +72,16 @@ itself every run.
 
 MIT. Take it, learn it, build the future with it.
 
-For production integration, the [Lumis SDK](https://lumiscompute.com) adds production scale, the physics-grounded power model, the M/D/1 latency harness, workload trace ingestion, and parameter updates as measurements arrive.
+### On the commercial SDK
+
+The Lumis SDK is **in development and not yet available for purchase.** Its
+planned scope is larger meshes, a physics-grounded power model, an M/D/1 latency
+harness, workload trace ingestion, and parameter refinement as measurement data
+arrives from silicon. None of that ships today, and this repository is the whole
+of what currently exists in public.
+
+We would rather say that plainly than let a roadmap read as a product.
+Register interest at [lumiscompute.com](https://lumiscompute.com) and we will
+write to you when there is something real to try.
 
 *Axiom Photonics - the speed of light is not a bottleneck. It's the roadmap.*

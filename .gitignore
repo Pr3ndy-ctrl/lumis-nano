@@ -1,0 +1,48 @@
+# =============================================================================
+#  LUMIS-NANO :: PUBLIC REPOSITORY
+#  This repo contains ONLY the open educational demonstrator.
+#  Everything below is proprietary or build output and must never be published.
+# =============================================================================
+
+# ---- PROPRIETARY. The paid SDK and its licence enforcement. NEVER COMMIT. ----
+lumis_premium_drm.py
+lumis_premium_drm.c
+lumis_premium_drm*.so
+build_sdk.py
+dist/
+lumis_sdk_premium*
+*premium*
+
+# ---- SDK licence enforcement and its design. Proprietary. NEVER COMMIT. ----
+_licensing.py
+AXL-SDK-001_Licensing_Design.md
+
+# ---- Compiled / Cython artefacts ----
+*.so
+*.pyd
+*.o
+lumis_nano.c
+build/
+
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+.venv/
+venv/
+env/
+
+# ---- Secrets ----
+.env
+.env.*
+*.key
+*.pem
+license.key
+
+# ---- OS / editor ----
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp

@@ -15,13 +15,19 @@ import argparse, numpy as np
 E_MAC_DIGITAL = 4.6e-12   # J per fp32 multiply-accumulate (45nm, Horowitz 2014)
 CLOCK_HZ      = 1.0e9     # assumed inference rate: 1e9 matrix-vector ops / s
 
+# Rev 1 photonic node power model. Design targets, labelled as such. These are
+# the SAME figures the axiom-lumis SDK admits against: the EO (Pockels TFLN/BTO)
+# phase shifters hold a VOLTAGE, not a current, so static hold is tiny -- not
+# the ~25 mW/shifter of a thermo-optic mesh. See the whitepaper, section 09.
+P_DRIVE_LASER = 6.8          # W, modulator drivers + laser coupling floor per node
+HOLD_PER_MZI  = 0.2 / 2016   # W, EO static hold per MZI (<0.2 W across a full mesh)
+
 def make_weights(n, seed):
-    """A random dense layer. Uses torch if installed, numpy otherwise."""
-    try:
-        import torch; torch.manual_seed(seed)
-        return torch.randn(n, n).numpy().astype(np.float64)
-    except ImportError:
-        return np.random.default_rng(seed).standard_normal((n, n))
+    """A random dense layer, numpy only so the same seed gives the same matrix
+    on every machine. (Branching on whether torch was importable made `--seed`
+    reproducible only within one environment -- same command, different matrix
+    elsewhere.)"""
+    return np.random.default_rng(seed).standard_normal((n, n))
 
 def reck_decompose(U):
     """Compile a unitary into a triangular mesh of MZIs (Reck et al. 1994).
@@ -73,18 +79,25 @@ def rebuild(mzis, D):
     return U
 
 def mesh_operator(mzis, D, N):
-    """Independent forward model: compose the mesh as a product of dense NxN
-    unitaries and return the operator it realises.
+    """Compose the mesh as a product of dense NxN unitaries and return the
+    operator it realises.
 
-    This is deliberately NOT rebuild() run backwards. rebuild() applies the
-    same Givens block that reck_decompose() used, by the same two-row slicing,
-    so a convention bug in one would cancel in the other and the round-trip
-    would still pass. Here each MZI is instead embedded as a full NxN identity
-    with a freshly written 2x2 beamsplitter-and-phase block, and the mesh is
-    the dense matrix product of those operators acting on the output phase
-    screen. A transcription or indexing error in this path cannot be masked by
-    one in the decomposition, so agreement with the input unitary is real
-    evidence the parameters realise it -- not an algebraic tautology."""
+    What this does and does NOT prove, stated honestly. It embeds each MZI as a
+    full NxN identity with its 2x2 block and composes them with dense matrix
+    products, where rebuild() applies the block by two-row slicing. So it rules
+    out a slicing, indexing or embedding mistake: if either path had one, the
+    two would disagree. They agree to machine precision (0.0 at N<=8).
+
+    It does NOT give independence against a phase-convention error, because it
+    uses the SAME 2x2 block as rebuild(). Two things to keep straight:
+      - A convention error in rebuild()'s block ALONE is already caught by the
+        round-trip -- flip a sign and |mesh - U| jumps to ~1.3, not zero.
+      - A convention error SHARED between reck_decompose() and rebuild() would
+        cancel in the round-trip, and mesh_operator() shares that block, so it
+        cannot catch it either. The only check that can is a compiler written
+        independently, fed the same matrix. That is an external exercise, not
+        something one file can do to itself; where such a compiler has been run
+        against this one, they agree."""
     M = np.diag(D).astype(complex)
     for p, t, f in mzis:                      # same propagation order as rebuild
         T = np.eye(N, dtype=complex)
@@ -185,30 +198,41 @@ def main():
     if not a.no_table:
         table("Vt", mz_v, 0); print(); table("U", mz_u, len(mz_v))
 
-    # [5] Verification. A compiler you cannot verify is a rumor. Two independent
-    #     checks: the SVD factorisation, and the mesh as a dense forward model
-    #     (mesh_operator), which is NOT the decomposition run backwards.
+    # [4] Verification. A compiler you cannot verify is a rumor. Two checks: the
+    #     SVD factorisation, and the mesh recomposed as a dense forward model
+    #     (mesh_operator) -- a cross-check against slicing/embedding errors, not
+    #     a claim of convention-independence (see its docstring).
     e_svd  = np.abs(U @ np.diag(S) @ Vt - W).max()
     e_mesh = max(np.abs(mesh_operator(mz_u, D_u, a.size) - U).max(),
                  np.abs(mesh_operator(mz_v, D_v, a.size) - Vt).max())
     print(f"\n  [4] VERIFICATION\n      max|U.S.Vt - W|      = {e_svd:.3e}"
-          f"\n      max|mesh - unitary|  = {e_mesh:.3e}  (independent forward model)"
+          f"\n      max|mesh - unitary|  = {e_mesh:.3e}  (dense forward recomposition)"
           f"\n      STATUS: {'PASS' if max(e_svd, e_mesh) < 1e-9 else 'FAIL'}"
           " (machine precision = exact compile)")
 
-    # [6] The energy argument. A digital MAC burns energy moving charge every
-    #     single cycle. A phase shifter is set once; after that the multiply is
-    #     just propagation -- interference does the arithmetic for free.
+    # [5] The energy argument, honestly. The optical ARITHMETIC is free: light
+    #     does the multiply by propagating, so the O(N^2) MAC cost drops to zero.
+    #     The NODE is not free: it draws a fixed floor (drivers, laser, EO hold)
+    #     whether it runs once a second or a billion times. The win is that this
+    #     floor is FLAT in the rate while digital cost grows with it -- so there
+    #     is a breakeven rate, not a blanket "100% saving".
     macs  = a.size ** 2
-    p_dig = macs * E_MAC_DIGITAL * CLOCK_HZ
-    print(f"\n  [5] POWER LEDGER @ {CLOCK_HZ:.0e} matrix-vector ops/sec")
-    print(f"      DIGITAL : {macs} MACs x {E_MAC_DIGITAL*1e12:.1f} pJ x rate "
-          f"= {p_dig*1e3:8.3f} mW")
-    print(f"      OPTICAL : passive mesh compute               =    0.000 mW")
-    print(f"      SAVED   : {p_dig*1e3:8.3f} mW  (100.0% of MAC energy)")
-    print("      NOTE: laser, DAC/ADC and thermal phase-hold power are I/O-")
-    print("      boundary costs, amortized across the whole mesh; the O(N^2)")
-    print(f"      arithmetic itself is free.\n{bar}\n  END OF COMPILE\n{bar}")
+    mzis  = a.size * (a.size - 1) // 2
+    p_dig    = macs * E_MAC_DIGITAL * CLOCK_HZ          # scales with rate
+    p_static = P_DRIVE_LASER + mzis * HOLD_PER_MZI      # flat vs rate
+    rate_be  = p_static / (macs * E_MAC_DIGITAL)        # breakeven matvec/s
+    print(f"\n  [5] POWER LEDGER (Rev 1 design targets)")
+    print(f"      DIGITAL  @ {CLOCK_HZ:.0e}/s : {macs} MACs x {E_MAC_DIGITAL*1e12:.1f} pJ x rate "
+          f"= {p_dig:7.3f} W   (scales with rate)")
+    print(f"      PHOTONIC floor       : drivers+laser {P_DRIVE_LASER:.1f} W + "
+          f"hold {mzis*HOLD_PER_MZI:.3f} W = {p_static:7.3f} W   (flat vs rate)")
+    verdict = "photonic wins" if CLOCK_HZ > rate_be else "digital still cheaper"
+    print(f"      BREAKEVEN            : ~{rate_be:.2e} matvec/s  "
+          f"(at {CLOCK_HZ:.0e}/s: {verdict})")
+    print("      NOTE: the arithmetic is free; the node is not. EO phase")
+    print("      shifters hold a voltage, so static hold is <0.2 W across a full")
+    print("      mesh -- not the ~25 mW/shifter of a thermo-optic mesh. Swap in")
+    print(f"      datasheet constants for your real operating point.\n{bar}\n  END OF COMPILE\n{bar}")
 
 if __name__ == "__main__":
     main()

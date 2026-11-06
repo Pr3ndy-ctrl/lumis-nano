@@ -67,10 +67,20 @@ A digital MAC moves charge through transistors every single cycle - roughly
 4.6 pJ per fp32 MAC in 45 nm CMOS (Horowitz, ISSCC 2014). An 8×8 layer at 10⁹
 inferences/sec burns ~295 mW doing arithmetic a piece of structured glass does
 for 0 J. Phase shifters are set **once** at compile time; afterward the
-multiply is a boundary condition, not a computation. Lasers, DACs, ADCs and
-thermal hold power are real I/O costs - but they sit at the edges and amortize,
-while the O(N²) arithmetic core drops to zero. GPUs hit a thermal wall.
-Waveguides don't have one.
+multiply is a boundary condition, not a computation, so the O(N²) arithmetic
+cost drops to zero.
+
+The node itself is not free, and the ledger says so. Drivers, the laser and the
+electro-optic phase-hold draw a **fixed floor** - about 7 W for a full 64-mode
+Rev 1 node - whether it runs once a second or a billion times. The point is not
+"100% saving"; it is that this floor is **flat in the rate** while the digital
+cost grows with it. So there is a breakeven: below it the fixed floor costs more
+than the arithmetic it replaces, above it the photonic node wins and keeps
+winning. At a full 64-node that crossover is ~3.7×10⁸ matvec/s (design target).
+EO shifters hold a voltage rather than a current, which is why the hold is
+<0.2 W across a full mesh and not the ~25 mW/shifter of a thermo-optic mesh -
+swap in datasheet numbers for your own operating point. GPUs hit a thermal wall;
+waveguides don't, but a laser still has to be on.
 
 ## WHY DETERMINISTIC MATTERS
 
@@ -82,8 +92,8 @@ vehicles, and in control loops actually requires.
 
 ## WHAT THE SCRIPT DOES
 
-Generates a random weight matrix (PyTorch if present, NumPy otherwise) →
-performs the SVD → compiles both unitaries into explicit MZI (θ, φ) settings
+Generates a random weight matrix (NumPy, deterministic from `--seed` on every
+machine) → performs the SVD → compiles both unitaries into explicit MZI (θ, φ) settings
 via Givens rotations → renders the die as raw ASCII, light path left to right
 → verifies the mesh reconstructs `U` and `Vᵀ` to machine precision → prints
 the power ledger. A compiler you cannot verify is a rumor; this one proves

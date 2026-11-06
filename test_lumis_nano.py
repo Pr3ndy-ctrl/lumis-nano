@@ -122,17 +122,32 @@ def test_cli_run_is_reproducible():
 
 
 # ------------------------------------------------------------------ known gap
-def test_KNOWN_F2_non_unitary_input_is_not_rejected():
-    """F-2, known. reck_decompose does not validate unitarity.
-
-    This test DOCUMENTS current behaviour rather than endorsing it. If a fix
-    lands that raises on non-unitary input, this test should be inverted.
-    """
+def test_F2_non_unitary_input_is_rejected():
+    """F-2, fixed. reck_decompose now validates unitarity and refuses a general
+    matrix instead of returning a layout that cannot rebuild to the input."""
+    import pytest
     M = rng.standard_normal((4, 4))                 # emphatically not unitary
-    mzis, D = ln.reck_decompose(M.astype(complex))
-    err = np.abs(ln.rebuild(mzis, D) - M).max()
-    assert err > 1e-6, "input was closer to unitary than intended"
-    # No exception raised. That is the finding.
+    with pytest.raises(ValueError, match="not unitary"):
+        ln.reck_decompose(M.astype(complex))
+
+
+def test_structurally_invalid_input_is_rejected():
+    """NaN, infinity, empty, non-square and 1x1 inputs must fail loudly."""
+    import pytest
+    U = ln.make_weights(4, 0)
+    bad = {
+        "nan": U.copy(),
+        "inf": U.copy(),
+        "non_square": np.zeros((3, 4), dtype=complex),
+        "empty": np.zeros((0, 0), dtype=complex),
+        "scalar": np.ones((1, 1), dtype=complex),
+        "three_d": np.zeros((2, 2, 2), dtype=complex),
+    }
+    bad["nan"][0, 0] = np.nan
+    bad["inf"][1, 1] = np.inf
+    for name, M in bad.items():
+        with pytest.raises(ValueError):
+            ln.reck_decompose(M)
 
 
 # ------------------------------------------------------------------------ cli
@@ -172,6 +187,32 @@ def test_readme_energy_arithmetic():
     assert abs(p_mw - 294.4) < 0.1, f"got {p_mw:.1f} mW"
 
 
+def test_independent_forward_model_reconstructs_unitary():
+    """F-4, fixed. mesh_operator is a dense forward model written separately
+    from the decomposition, so agreement with U is real evidence, not an
+    algebraic round-trip. It must reconstruct U and agree with rebuild."""
+    for n in (2, 4, 8, 16):
+        U = random_unitary(n)
+        mzis, D = ln.reck_decompose(U)
+        M = ln.mesh_operator(mzis, D, n)
+        assert np.abs(M - U).max() < TOL, f"n={n} forward model off by {np.abs(M-U).max():.2e}"
+        assert np.abs(M - ln.rebuild(mzis, D)).max() < TOL, "two paths disagree"
+
+
+def test_pack_is_shallow():
+    """The ASAP packer must reach the optimal 2N-3 mesh depth, not a staircase."""
+    import numpy as np
+    rng = np.random.default_rng(1)
+    for n in (4, 6, 8):
+        Z = (rng.standard_normal((n, n)) + 1j * rng.standard_normal((n, n))) / np.sqrt(2)
+        Q, R = np.linalg.qr(Z)
+        U = Q * (np.diag(R) / np.abs(np.diag(R))).conj()
+        mzis, _ = ln.reck_decompose(U)
+        assert len(ln.pack(mzis)) <= 2 * n - 3
+
+
+# The runner stays at the very end of the file: it harvests test_* from
+# globals(), so any test defined below it would be silently skipped.
 if __name__ == "__main__":
     fns = [(n, f) for n, f in sorted(globals().items())
            if n.startswith("test_") and callable(f)]
@@ -186,15 +227,3 @@ if __name__ == "__main__":
             failed += 1
     print(f"\n{passed} passed, {failed} failed, {len(fns)} total")
     sys.exit(1 if failed else 0)
-
-
-def test_pack_is_shallow():
-    """The ASAP packer must reach the optimal 2N-3 mesh depth, not a staircase."""
-    import numpy as np
-    rng = np.random.default_rng(1)
-    for n in (4, 6, 8):
-        Z = (rng.standard_normal((n, n)) + 1j * rng.standard_normal((n, n))) / np.sqrt(2)
-        Q, R = np.linalg.qr(Z)
-        U = Q * (np.diag(R) / np.abs(np.diag(R))).conj()
-        mzis, _ = ln.reck_decompose(U)
-        assert len(ln.pack(mzis)) <= 2 * n - 3

@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='lumis-nano',
-    version='0.1.1',
+    version='0.1.2',
     description='Axiom Photonics / Open Source Division - Photonic Matrix Compiler',
     author='Dwain Prendergast',
     author_email='founder@axiomprocessor.com',

@@ -31,9 +31,24 @@ def reck_decompose(U):
     theta -> internal phase shifter, sets the split ratio (the 'rotation').
     phi   -> external phase shifter, sets the relative phase.
     We Givens-rotate U to diagonal; each rotation IS one physical MZI.
-    Returns (mzis=[(p, theta, phi), ...], residual_phases D)."""
-    V, mzis = U.astype(complex).copy(), []
-    N = V.shape[0]
+    Returns (mzis=[(p, theta, phi), ...], residual_phases D).
+
+    Raises ValueError if U is not a finite, square, 2x2-or-larger unitary: a
+    mesh can only realise a unitary, so compiling anything else would return a
+    layout that does not rebuild to the input. The check is here, in the free
+    core, on purpose -- garbage in should fail loudly, not silently."""
+    U = np.asarray(U, dtype=complex)
+    if U.ndim != 2 or U.shape[0] != U.shape[1]:
+        raise ValueError(f"expected a square 2D matrix, got shape {U.shape}")
+    N = U.shape[0]
+    if N < 2:
+        raise ValueError("mesh needs at least 2 modes")
+    if not np.all(np.isfinite(U)):
+        raise ValueError("matrix contains NaN or infinity")
+    if not np.allclose(U @ U.conj().T, np.eye(N), atol=1e-8):
+        raise ValueError("matrix is not unitary (U @ U^dagger != I); factor a "
+                         "general matrix with an SVD first")
+    V, mzis = U.copy(), []
     for j in range(N - 1):                    # zero the sub-diagonal, col by col
         for i in range(N - 1, j, -1):         # climb from the bottom row up
             a, b = V[i - 1, j], V[i, j]
@@ -56,6 +71,31 @@ def rebuild(mzis, D):
                        [np.exp(-1j*f)*np.sin(t), np.cos(t)]])   # G^dagger
         U[[p, p + 1], :] = Gd @ U[[p, p + 1], :]
     return U
+
+def mesh_operator(mzis, D, N):
+    """Independent forward model: compose the mesh as a product of dense NxN
+    unitaries and return the operator it realises.
+
+    This is deliberately NOT rebuild() run backwards. rebuild() applies the
+    same Givens block that reck_decompose() used, by the same two-row slicing,
+    so a convention bug in one would cancel in the other and the round-trip
+    would still pass. Here each MZI is instead embedded as a full NxN identity
+    with a freshly written 2x2 beamsplitter-and-phase block, and the mesh is
+    the dense matrix product of those operators acting on the output phase
+    screen. A transcription or indexing error in this path cannot be masked by
+    one in the decomposition, so agreement with the input unitary is real
+    evidence the parameters realise it -- not an algebraic tautology."""
+    M = np.diag(D).astype(complex)
+    for p, t, f in mzis:                      # same propagation order as rebuild
+        T = np.eye(N, dtype=complex)
+        c, s = np.cos(t), np.sin(t)
+        # MZI transfer (unitary): a phase-fed beamsplitter on rails p, p+1.
+        T[p,   p]   =  c
+        T[p,   p+1] = -np.exp(1j * f) * s
+        T[p+1, p]   =  np.exp(-1j * f) * s
+        T[p+1, p+1] =  c
+        M = T @ M
+    return M
 
 def pack(mzis):
     """ASAP layout: each MZI drops into the EARLIEST column where both its rails
@@ -145,12 +185,14 @@ def main():
     if not a.no_table:
         table("Vt", mz_v, 0); print(); table("U", mz_u, len(mz_v))
 
-    # [5] Verification. A compiler you cannot verify is a rumor.
+    # [5] Verification. A compiler you cannot verify is a rumor. Two independent
+    #     checks: the SVD factorisation, and the mesh as a dense forward model
+    #     (mesh_operator), which is NOT the decomposition run backwards.
     e_svd  = np.abs(U @ np.diag(S) @ Vt - W).max()
-    e_mesh = max(np.abs(rebuild(mz_u, D_u) - U).max(),
-                 np.abs(rebuild(mz_v, D_v) - Vt).max())
+    e_mesh = max(np.abs(mesh_operator(mz_u, D_u, a.size) - U).max(),
+                 np.abs(mesh_operator(mz_v, D_v, a.size) - Vt).max())
     print(f"\n  [4] VERIFICATION\n      max|U.S.Vt - W|      = {e_svd:.3e}"
-          f"\n      max|mesh - unitary|  = {e_mesh:.3e}"
+          f"\n      max|mesh - unitary|  = {e_mesh:.3e}  (independent forward model)"
           f"\n      STATUS: {'PASS' if max(e_svd, e_mesh) < 1e-9 else 'FAIL'}"
           " (machine precision = exact compile)")
 

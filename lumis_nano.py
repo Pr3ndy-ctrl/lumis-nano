@@ -58,14 +58,18 @@ def rebuild(mzis, D):
     return U
 
 def pack(mzis):
-    """Greedy layout: MZIs on disjoint rails act simultaneously (same column),
-    exactly as they are physically tiled on the die."""
-    cols = []
+    """ASAP layout: each MZI drops into the EARLIEST column where both its rails
+    are free, so MZIs on disjoint rails share a column exactly as they are
+    physically tiled on the die. Tracking the last column that touched each rail
+    (rather than only checking the final column) packs the mesh as shallow as the
+    physics allows -- a depth-(2N-3) mesh instead of a near-diagonal staircase."""
+    cols, last = [], {}
     for p, t, f in mzis:
-        if cols and all(abs(p - q) > 1 for q, _, _ in cols[-1]):
-            cols[-1].append((p, t, f))
-        else:
-            cols.append([(p, t, f)])
+        c = max(last.get(p, -1), last.get(p + 1, -1)) + 1   # after both rails' last use
+        if c == len(cols):
+            cols.append([])
+        cols[c].append((p, t, f))
+        last[p] = last[p + 1] = c
     return cols
 
 def draw_mesh(n, cols_v, sigma, cols_u, width=100):
@@ -98,10 +102,12 @@ def table(name, mzis, k0):
 
 def main():
     ap = argparse.ArgumentParser(description="lumis-nano photonic compiler demo")
-    ap.add_argument("--size", type=int, default=4, choices=(4, 8))
+    ap.add_argument("--size", type=int, default=4, help="mesh size N (>= 2)")
     ap.add_argument("--seed", type=int, default=7)
     ap.add_argument("--no-table", action="store_true")
     a = ap.parse_args()
+    if not 2 <= a.size <= 64:
+        ap.error("--size must be between 2 and 64")
     bar = "=" * 78
     print(f"\n{bar}\n  LUMIS-NANO v0.1 :: DETERMINISTIC PHOTONIC COMPILE PIPELINE\n"
           f"  TARGET: MZI TRIANGULAR MESH   LAYER: {a.size}x{a.size}   "

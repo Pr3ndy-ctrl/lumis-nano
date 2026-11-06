@@ -146,10 +146,17 @@ def test_cli_exits_clean_on_valid_input():
 
 
 def test_cli_rejects_invalid_size():
-    for bad in ("0", "-4", "5", "1000", "abc"):
+    for bad in ("0", "1", "-4", "1000", "abc"):
         r = subprocess.run([sys.executable, str(SRC), "--size", bad],
                            capture_output=True, text=True, timeout=60)
         assert r.returncode != 0, f"--size {bad} was accepted"
+
+
+def test_cli_accepts_any_size_in_range():
+    for ok in ("2", "5", "7", "16"):
+        r = subprocess.run([sys.executable, str(SRC), "--size", ok, "--no-table"],
+                           capture_output=True, text=True, timeout=60)
+        assert r.returncode == 0, f"--size {ok} was rejected"
 
 
 def test_verification_block_reports_pass():
@@ -179,3 +186,15 @@ if __name__ == "__main__":
             failed += 1
     print(f"\n{passed} passed, {failed} failed, {len(fns)} total")
     sys.exit(1 if failed else 0)
+
+
+def test_pack_is_shallow():
+    """The ASAP packer must reach the optimal 2N-3 mesh depth, not a staircase."""
+    import numpy as np
+    rng = np.random.default_rng(1)
+    for n in (4, 6, 8):
+        Z = (rng.standard_normal((n, n)) + 1j * rng.standard_normal((n, n))) / np.sqrt(2)
+        Q, R = np.linalg.qr(Z)
+        U = Q * (np.diag(R) / np.abs(np.diag(R))).conj()
+        mzis, _ = ln.reck_decompose(U)
+        assert len(ln.pack(mzis)) <= 2 * n - 3

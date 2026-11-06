@@ -7,9 +7,30 @@ network layer compiles into photons. It is the educational core of the math
 behind Axiom Photonics' MGOC-H120 deterministic inference engine. No cloud, no
 framework, no mercy: one script, `numpy`, and the terminal.
 
+## INSTALL
+
 ```
-python3 lumis_nano.py --size 4          # full mesh + phase table
-python3 lumis_nano.py --size 8 --seed 42 --no-table
+pip install lumis-nano
+```
+
+or straight from source:
+
+```
+pip install git+https://github.com/Pr3ndy-ctrl/lumis-nano.git
+```
+
+Then run it:
+
+```
+lumis-nano --size 4                  # full mesh + phase table
+lumis-nano --size 8 --seed 42 --no-table
+lumis-nano --size 16                 # any size from 2 to 64
+```
+
+No install needed either — it's one file:
+
+```
+python3 lumis_nano.py --size 8
 ```
 
 ## THE PHYSICS, WITHOUT APOLOGY
@@ -72,16 +93,26 @@ itself every run.
 
 MIT. Take it, learn it, build the future with it.
 
-### On the commercial SDK
+### Two tiers
 
-The Lumis SDK is **in development and not yet available for purchase.** Its
-planned scope is larger meshes, a physics-grounded power model, an M/D/1 latency
-harness, workload trace ingestion, and parameter refinement as measurement data
-arrives from silicon. None of that ships today, and this repository is the whole
-of what currently exists in public.
+`lumis-nano` is the free, open teaching core: one file, the Reck mesh, the SVD,
+the ASCII die. Take it, learn it, build with it.
 
-We would rather say that plainly than let a roadmap read as a product.
-Register interest at [lumiscompute.com](https://lumiscompute.com) and we will
-write to you when there is something real to try.
+The full SDK is **`axiom-lumis`**, and it is live:
+
+```
+pip install axiom-lumis
+```
+
+It uses the production Clements rectangular compiler, enforces the Rev 1 power
+envelope (it refuses a schedule the chip could not run instead of pretending),
+and will generate a feasibility report for a whole model (`lumis study`). It is
+pre-silicon: every power and latency figure it prints is a Rev 1 design target,
+and it says so on every line. The free tier covers the full 64-mode node;
+commercial seats add batch compile, export and support.
+
+The chip itself is not fabricated yet. We would rather say that plainly than let
+a roadmap read as a product. Follow along at
+[axiomprocessor.com](https://axiomprocessor.com).
 
 *Axiom Photonics - the speed of light is not a bottleneck. It's the roadmap.*

@@ -118,8 +118,9 @@ It uses the production Clements rectangular compiler, enforces the Rev 1 power
 envelope (it refuses a schedule the chip could not run instead of pretending),
 and will generate a feasibility report for a whole model (`lumis study`). It is
 pre-silicon: every power and latency figure it prints is a Rev 1 design target,
-and it says so on every line. The free tier covers the full 64-mode node;
-commercial seats add batch compile, export and support.
+and it says so on every line. There is no free tier of `axiom-lumis`: `lumis-nano` above is the free one, and
+it already runs the full 64-mode node. Commercial `axiom-lumis` seats add the
+production compiler, batch compile, export and support.
 
 The chip itself is not fabricated yet. We would rather say that plainly than let
 a roadmap read as a product. Follow along at
